@@ -1,0 +1,11 @@
+prenom;nom;email;mot_de_passe;date_naissance;genre;newsletter
+Jean;Dupont;jean.dupont@email.com;Client2026!;1985-03-15;1;1
+Marie;Martin;marie.martin@email.com;Client2026!;1990-07-22;2;0
+Pierre;Bernard;pierre.bernard@email.com;Client2026!;1978-11-03;1;1
+Sophie;Leroy;sophie.leroy@email.com;Client2026!;1995-01-28;2;1
+Luc;Moreau;luc.moreau@email.com;Client2026!;1982-09-10;1;0
+Camille;Petit;camille.petit@email.com;Client2026!;1988-12-05;2;1
+Thomas;Robert;thomas.robert@email.com;Client2026!;1975-06-18;1;0
+Julie;Richard;julie.richard@email.com;Client2026!;1992-04-30;2;1
+Marc;Durand;marc.durand@email.com;Client2026!;1980-08-12;1;1
+Emma;Simon;emma.simon@email.com;Client2026!;1998-02-25;2;0
