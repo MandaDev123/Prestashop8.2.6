@@ -59,11 +59,24 @@ export async function createEntity(apiKey, resource, xml) {
   });
   const text = await res.text();
   if (!res.ok) {
-    // Extract error message from XML
+    // Try JSON error first
+    try {
+      const json = JSON.parse(text);
+      const msg = json.errors?.map(e => e.message).join(', ') || JSON.stringify(json);
+      return { success: false, error: `HTTP ${res.status}: ${msg}` };
+    } catch {}
+    // Fallback to XML error
     const msgMatch = text.match(/<message><!\[CDATA\[(.+?)\]\]><\/message>/s);
-    const msg = msgMatch ? msgMatch[1] : text.substring(0, 150);
+    const msg = msgMatch ? msgMatch[1] : text.substring(0, 150);    
     return { success: false, error: `HTTP ${res.status}: ${msg}` };
   }
+  // Try JSON response first (output_format=JSON)
+  try {
+    const json = JSON.parse(text);
+    const key = Object.keys(json)[0]; // e.g. "address", "customer", "cart", etc.
+    if (key && json[key]?.id) return { success: true, id: String(json[key].id) };
+  } catch {}
+  // Fallback to XML regex
   const idMatch = text.match(/<id><!\[CDATA\[(\d+)\]\]><\/id>|<id>(\d+)<\/id>/);
   return { success: true, id: idMatch ? (idMatch[1] || idMatch[2]) : null };
 }
@@ -189,6 +202,16 @@ export const IMPORT_ENTITIES = {
       phone: { req: false, aliases: ['telephone','tel','fixe'] },
       phone_mobile: { req: false, aliases: ['mobile','portable','gsm'] },
       company: { req: false, aliases: ['societe','entreprise'] },
+    },
+  },
+  combinations: {
+    label: 'Déclinaisons', resource: 'combinations', depends: ['products'],
+    fields: {
+      id_product: { req: true, aliases: ['produit','product','id_produit'] },
+      reference: { req: false, aliases: ['ref','sku','code'] },
+      price: { req: false, aliases: ['impact_prix','prix','supplement'] },
+      weight: { req: false, aliases: ['impact_poids','poids'] },
+      quantity: { req: false, aliases: ['quantite','qty','stock'] },
     },
   },
 };
@@ -337,3 +360,244 @@ export function sortByDeps(files) {
     return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
   });
 }
+
+// ══════════════════════════════════════════════
+// FRONTOFFICE + ORDER MANAGEMENT API
+// ══════════════════════════════════════════════
+
+// ── Fetch all products with details ──
+export async function fetchProducts(apiKey) {
+  const res = await fetch(`${BASE}/products${qs(apiKey, { display: 'full', 'filter[active]': '1' })}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.products || [];
+}
+
+// ── Fetch single product ──
+export async function fetchProduct(apiKey, id) {
+  const res = await fetch(`${BASE}/products/${id}${qs(apiKey)}`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.product || null;
+}
+
+// ── Fetch categories ──
+export async function fetchCategoriesList(apiKey) {
+  const res = await fetch(`${BASE}/categories${qs(apiKey, { display: 'full', 'filter[active]': '1' })}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.categories || [];
+}
+
+// ── Get product image URL ──
+export function productImageUrl(apiKey, productId, imageId) {
+  return `${BASE}/images/products/${productId}/${imageId}${qs(apiKey)}`;
+}
+
+// ── Fetch all orders with details ──
+export async function fetchOrders(apiKey) {
+  const res = await fetch(`${BASE}/orders${qs(apiKey, { display: 'full', sort: '[id_DESC]' })}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.orders || [];
+}
+
+// ── Fetch all carts ──
+export async function fetchCarts(apiKey) {
+  const res = await fetch(`${BASE}/carts${qs(apiKey, { display: 'full', sort: '[id_DESC]' })}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.carts || [];
+}
+
+// ── Fetch orders by customer ID ──
+export async function fetchOrdersByCustomer(apiKey, customerId) {
+  const res = await fetch(`${BASE}/orders${qs(apiKey, { display: 'full', 'filter[id_customer]': customerId, sort: '[id_DESC]' })}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  const orders = data.orders;
+  if (!orders) return [];
+  return Array.isArray(orders) ? orders : [orders];
+}
+
+// ── Find customer by email ──
+export async function findCustomerByEmail(apiKey, email) {
+  const res = await fetch(`${BASE}/customers${qs(apiKey, { display: 'full', 'filter[email]': email })}`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  const custs = data.customers;
+  if (!custs || (Array.isArray(custs) && custs.length === 0)) return null;
+  return Array.isArray(custs) ? custs[0] : custs;
+}
+
+// ── Fetch all customers ──
+export async function fetchCustomers(apiKey) {
+  const res = await fetch(`${BASE}/customers${qs(apiKey, { display: 'full', 'filter[active]': '1' })}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.customers || [];
+}
+
+// ── Fetch specific prices (discounts) ──
+export async function fetchSpecificPrices(apiKey) {
+  const res = await fetch(`${BASE}/specific_prices${qs(apiKey, { display: 'full' })}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.specific_prices || [];
+}
+
+// ── Fetch active countries ──
+export async function fetchCountries(apiKey) {
+  const res = await fetch(`${BASE}/countries${qs(apiKey, { display: 'full', 'filter[active]': 1 })}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.countries || [];
+}
+
+// ── Fetch combinations for a product ──
+export async function fetchProductCombinations(apiKey, productId) {
+  const res = await fetch(`${BASE}/combinations${qs(apiKey, { display: 'full', 'filter[id_product]': productId })}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.combinations || [];
+}
+
+// ── Fetch product option values ──
+export async function fetchProductOptionValues(apiKey) {
+  const res = await fetch(`${BASE}/product_option_values${qs(apiKey, { display: 'full' })}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.product_option_values || [];
+}
+
+// ── Fetch product options ──
+export async function fetchProductOptions(apiKey) {
+  const res = await fetch(`${BASE}/product_options${qs(apiKey, { display: 'full' })}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.product_options || [];
+}
+
+// ── Fetch order states ──
+export async function fetchOrderStates(apiKey) {
+  const res = await fetch(`${BASE}/order_states${qs(apiKey, { display: 'full' })}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.order_states || [];
+}
+
+// ── Update order status via order_histories ──
+export async function updateOrderStatus(apiKey, orderId, stateId) {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<prestashop xmlns:xlink="http://www.w3.org/1999/xlink">
+<order_history><id_order>${orderId}</id_order><id_order_state>${stateId}</id_order_state></order_history>
+</prestashop>`;
+  const res = await fetch(`${BASE}/order_histories${qs(apiKey)}`, {
+    method: 'POST', headers: { 'Content-Type': 'text/xml' }, body: xml,
+  });
+  return res.ok;
+}
+
+// ── Upload product image ──
+export async function uploadProductImage(apiKey, productId, imageBlob, fileName) {
+  const form = new FormData();
+  form.append('image', imageBlob, fileName);
+  const res = await fetch(`${BASE}/images/products/${productId}${qs(apiKey)}`, {
+    method: 'POST', body: form,
+  });
+  return res.ok;
+}
+
+// ── Fetch stock for a product ──
+export async function fetchStock(apiKey, productId) {
+  const res = await fetch(`${BASE}/stock_availables${qs(apiKey, { display: 'full', 'filter[id_product]': productId, 'filter[id_product_attribute]': '0' })}`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  const sa = data.stock_availables;
+  if (!sa) return null;
+  return Array.isArray(sa) ? sa[0] : sa;
+}
+
+// ── Create full order workflow: customer → address → cart → order ──
+export async function createFullOrder(apiKey, customerInfo, cartItems, langId = 1) {
+  // 1. Find or create customer
+  let customer = await findCustomerByEmail(apiKey, customerInfo.email);
+  let customerId;
+  if (customer) {
+    customerId = customer.id;
+  } else {
+    const custXml = `<?xml version="1.0" encoding="UTF-8"?>
+<prestashop><customer>
+<firstname>${esc(customerInfo.firstname)}</firstname>
+<lastname>${esc(customerInfo.lastname)}</lastname>
+<email>${esc(customerInfo.email)}</email>
+<passwd>${esc(customerInfo.passwd || 'NewApp2026!')}</passwd>
+<active>1</active>
+</customer></prestashop>`;
+    const r = await createEntity(apiKey, 'customers', custXml);
+    if (!r.success) return { success: false, error: 'Création client: ' + r.error };
+    customerId = r.id;
+  }
+
+  // 2. Create address
+  const addrXml = `<?xml version="1.0" encoding="UTF-8"?>
+<prestashop><address>
+<id_customer>${customerId}</id_customer>
+<alias>Livraison</alias>
+<firstname>${esc(customerInfo.firstname)}</firstname>
+<lastname>${esc(customerInfo.lastname)}</lastname>
+<address1>${esc(customerInfo.address)}</address1>
+<city>${esc(customerInfo.city)}</city>
+<postcode>${esc(customerInfo.postcode)}</postcode>
+<id_country>${customerInfo.id_country || 8}</id_country>
+<phone>${esc(customerInfo.phone || '')}</phone>
+</address></prestashop>`;
+  const addrR = await createEntity(apiKey, 'addresses', addrXml);
+  if (!addrR.success) return { success: false, error: 'Création adresse: ' + addrR.error };
+  const addressId = addrR.id;
+
+  // 3. Create cart with products
+  let cartRows = '';
+  for (const item of cartItems) {
+    cartRows += `<cart_row><id_product>${item.id}</id_product><id_product_attribute>${item.combinationId || 0}</id_product_attribute><id_address_delivery>${addressId}</id_address_delivery><quantity>${item.qty}</quantity></cart_row>`;
+  }
+  const cartXml = `<?xml version="1.0" encoding="UTF-8"?>
+<prestashop><cart>
+<id_customer>${customerId}</id_customer>
+<id_address_delivery>${addressId}</id_address_delivery>
+<id_address_invoice>${addressId}</id_address_invoice>
+<id_currency>2</id_currency>
+<id_lang>${langId}</id_lang>
+<associations><cart_rows>${cartRows}</cart_rows></associations>
+</cart></prestashop>`;
+  const cartR = await createEntity(apiKey, 'carts', cartXml);
+  if (!cartR.success) return { success: false, error: 'Création panier: ' + cartR.error };
+
+  // 4. Create order
+  let totalPaid = 0;
+  for (const item of cartItems) totalPaid += item.price * item.qty;
+  const orderXml = `<?xml version="1.0" encoding="UTF-8"?>
+<prestashop><order>
+<id_address_delivery>${addressId}</id_address_delivery>
+<id_address_invoice>${addressId}</id_address_invoice>
+<id_cart>${cartR.id}</id_cart>
+<id_currency>2</id_currency>
+<id_lang>${langId}</id_lang>
+<id_customer>${customerId}</id_customer>
+<id_carrier>0</id_carrier>
+<payment>Paiement à la livraison</payment>
+<module>ps_cashondelivery</module>
+<total_paid>${totalPaid.toFixed(6)}</total_paid>
+<total_paid_real>${totalPaid.toFixed(6)}</total_paid_real>
+<total_products>${totalPaid.toFixed(6)}</total_products>
+<total_products_wt>${totalPaid.toFixed(6)}</total_products_wt>
+<conversion_rate>1.000000</conversion_rate>
+<current_state>16</current_state>
+</order></prestashop>`;
+  const orderR = await createEntity(apiKey, 'orders', orderXml);
+  if (!orderR.success) return { success: false, error: 'Création commande: ' + orderR.error };
+
+  return { success: true, orderId: orderR.id, customerId };
+}
+
+function esc(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
