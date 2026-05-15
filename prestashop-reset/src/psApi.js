@@ -454,6 +454,33 @@ export async function fetchCountries(apiKey) {
   return data.countries || [];
 }
 
+// ── Fetch stock available ──
+export async function fetchStockAvailables(apiKey, productId) {
+  const res = await fetch(`${BASE}/stock_availables${qs(apiKey, { display: 'full', 'filter[id_product]': productId })}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.stock_availables || [];
+}
+
+// ── Update stock available ──
+export async function updateStockAvailable(apiKey, stockObj) {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<prestashop><stock_available>
+  <id>${stockObj.id}</id>
+  <id_product>${stockObj.id_product}</id_product>
+  <id_product_attribute>${stockObj.id_product_attribute}</id_product_attribute>
+  <id_shop>${stockObj.id_shop}</id_shop>
+  <quantity>${stockObj.quantity}</quantity>
+  <depends_on_stock>${stockObj.depends_on_stock}</depends_on_stock>
+  <out_of_stock>${stockObj.out_of_stock}</out_of_stock>
+</stock_available></prestashop>`;
+  const res = await fetch(`${BASE}/stock_availables/${stockObj.id}${qs(apiKey)}`, {
+    method: 'PUT',
+    body: xml
+  });
+  return res.ok;
+}
+
 // ── Fetch combinations for a product ──
 export async function fetchProductCombinations(apiKey, productId) {
   const res = await fetch(`${BASE}/combinations${qs(apiKey, { display: 'full', 'filter[id_product]': productId })}`);
@@ -592,7 +619,7 @@ export async function createFullOrder(apiKey, customerInfo, cartItems, langId = 
 <total_products>${totalPaid.toFixed(6)}</total_products>
 <total_products_wt>${totalPaid.toFixed(6)}</total_products_wt>
 <conversion_rate>1.000000</conversion_rate>
-<current_state>16</current_state>
+<current_state>12</current_state>
 </order></prestashop>`;
   const orderR = await createEntity(apiKey, 'orders', orderXml);
   if (!orderR.success) return { success: false, error: 'Création commande: ' + orderR.error };

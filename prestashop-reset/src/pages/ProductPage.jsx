@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth, useCart } from '../contexts';
-import { fetchProduct, productImageUrl, fetchProductCombinations, fetchProductOptionValues, fetchProductOptions, fetchSpecificPrices } from '../psApi';
+import { fetchProduct, productImageUrl, fetchProductCombinations, fetchProductOptionValues, fetchProductOptions, fetchSpecificPrices, fetchStockAvailables } from '../psApi';
 
 export default function ProductPage() {
   const { id } = useParams();
@@ -15,6 +15,7 @@ export default function ProductPage() {
   const [optionsMap, setOptionsMap] = useState({});
   const [bundleProducts, setBundleProducts] = useState([]);
   const [specificPrices, setSpecificPrices] = useState([]);
+  const [stockData, setStockData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [added, setAdded] = useState(false);
   
@@ -24,16 +25,18 @@ export default function ProductPage() {
     if (!apiKey) return;
     (async () => { 
       setLoading(true); 
-      const [p, combs, optVals, opts, sp] = await Promise.all([
+      const [p, combs, optVals, opts, sp, stks] = await Promise.all([
         fetchProduct(apiKey, id),
         fetchProductCombinations(apiKey, id),
         fetchProductOptionValues(apiKey),
         fetchProductOptions(apiKey),
-        fetchSpecificPrices(apiKey)
+        fetchSpecificPrices(apiKey),
+        fetchStockAvailables(apiKey, id)
       ]);
       setProduct(p);
       setCombinations(combs);
       setSpecificPrices(sp);
+      setStockData(stks);
       
       const vMap = {};
       optVals.forEach(v => vMap[v.id] = v);
@@ -113,6 +116,9 @@ export default function ProductPage() {
   }
 
   const combinationImpact = currentCombination ? parseFloat(currentCombination.price || 0) : 0;
+  const currentCombId = currentCombination ? currentCombination.id : '0';
+  const currentStockObj = stockData.find(s => String(s.id_product_attribute) === String(currentCombId));
+  const availableQuantity = currentStockObj ? parseInt(currentStockObj.quantity || 0, 10) : 0;
   const initialPrice = basePrice + combinationImpact;
   
   // Find discount if any
@@ -191,6 +197,19 @@ export default function ProductPage() {
               <span>{finalPrice.toFixed(2)} €</span>
             )}
           </p>
+          <div style={{ marginTop: 8, marginBottom: 16 }}>
+            {availableQuantity > 0 ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--success)', fontSize: 13, fontWeight: 500 }}>
+                <span className="material-icons-outlined" style={{ fontSize: 16 }}>check_circle</span>
+                En stock ({availableQuantity} disponible{availableQuantity > 1 ? 's' : ''})
+              </span>
+            ) : (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--danger)', fontSize: 13, fontWeight: 500 }}>
+                <span className="material-icons-outlined" style={{ fontSize: 16 }}>cancel</span>
+                Rupture de stock
+              </span>
+            )}
+          </div>
           <div className="product-detail__desc" dangerouslySetInnerHTML={{ __html: descShort || desc }} />
           
           {Object.keys(availableOptions).length > 0 && (
@@ -213,7 +232,12 @@ export default function ProductPage() {
             </div>
           )}
 
-          <button className={`btn ${added ? 'btn--success' : 'btn--primary'}`} onClick={handleAdd} style={{ marginTop: 24, width: '100%' }}>
+          <button 
+            className={`btn ${added ? 'btn--success' : 'btn--primary'}`} 
+            onClick={handleAdd} 
+            disabled={availableQuantity <= 0}
+            style={{ marginTop: 24, width: '100%', opacity: availableQuantity <= 0 ? 0.5 : 1 }}
+          >
             <span className="material-icons-outlined" style={{ fontSize: 18 }}>{added ? 'check' : 'add_shopping_cart'}</span>
             {added ? 'Ajouté au panier !' : 'Ajouter au panier'}
           </button>

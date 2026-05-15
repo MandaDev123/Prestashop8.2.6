@@ -59,22 +59,32 @@ export function CartProvider({ children }) {
 
   const addItem = (product) => {
     setItems(prev => {
-      const idx = prev.findIndex(i => i.id === product.id);
+      const combId = product.combinationId || 0;
+      const cartKey = `${product.id}-${combId}`;
+      const idx = prev.findIndex(i => i.cartKey === cartKey);
       if (idx >= 0) {
         const n = [...prev]; n[idx] = { ...n[idx], qty: n[idx].qty + 1 }; return n;
       }
       const name = product.name?.[0]?.value || product.name || '';
       const img = product.associations?.images?.[0]?.id || null;
-      return [...prev, { id: product.id, name, price: parseFloat(product.price), qty: 1, imageId: img }];
+      return [...prev, { 
+        cartKey,
+        id: product.id, 
+        combinationId: combId,
+        name, 
+        price: parseFloat(product.price), 
+        qty: 1, 
+        imageId: img 
+      }];
     });
   };
 
-  const updateQty = (id, qty) => {
-    if (qty <= 0) return removeItem(id);
-    setItems(prev => prev.map(i => i.id === id ? { ...i, qty } : i));
+  const updateQty = (cartKey, qty) => {
+    if (qty <= 0) return removeItem(cartKey);
+    setItems(prev => prev.map(i => i.cartKey === cartKey ? { ...i, qty } : i));
   };
 
-  const removeItem = (id) => setItems(prev => prev.filter(i => i.id !== id));
+  const removeItem = (cartKey) => setItems(prev => prev.filter(i => i.cartKey !== cartKey));
   const clearCart = () => setItems([]);
   const total = items.reduce((s, i) => s + i.price * i.qty, 0);
   const count = items.reduce((s, i) => s + i.qty, 0);

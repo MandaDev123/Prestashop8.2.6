@@ -3,8 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts';
 import { fetchOrders, fetchCarts, updateOrderStatus, fetchCustomers } from '../psApi';
 
-const STATES = [
+const ALL_STATES = [
   { id: 13, label: 'En attente de paiement à la livraison', color: '#f59e0b' },
+  { id: 2, label: 'Paiement effectué', color: '#22c55e' },
+  { id: 6, label: 'Annulé', color: '#64748b' },
+];
+
+const ACTION_STATES = [
   { id: 2, label: 'Paiement effectué', color: '#22c55e' },
   { id: 6, label: 'Annulé', color: '#64748b' },
 ];
@@ -89,13 +94,13 @@ export default function OrdersAdminPage() {
 
   const getStateName = (id) => {
     if (id === 'cart') return 'Dans le panier';
-    const s = STATES.find(s => s.id === Number(id));
+    const s = ALL_STATES.find(s => s.id === Number(id));
     return s ? s.label : `État #${id}`;
   };
 
   const getStateColor = (id) => {
     if (id === 'cart') return '#eab308'; // yellow/orange
-    const s = STATES.find(s => s.id === Number(id));
+    const s = ALL_STATES.find(s => s.id === Number(id));
     return s ? s.color : 'var(--text-muted)';
   };
 
@@ -118,7 +123,8 @@ export default function OrdersAdminPage() {
       <div className="admin-topbar">
         <button className="topbar-link" onClick={() => nav('/admin/reset')}>Réinitialisation</button>
         <button className="topbar-link" onClick={() => nav('/admin/import')}>Import</button>
-        <button className="topbar-link" onClick={() => nav('/admin/orders')}>Commandes</button>
+        <button className="topbar-link" style={{ color: 'var(--text-primary)', background: 'rgba(255,255,255,0.04)' }}>Commandes</button>
+        <button className="topbar-link" onClick={() => nav('/admin/stocks')}>Stocks</button>
         <button className="topbar-link topbar-link--right" onClick={() => { logout(); nav('/login'); }}>Déconnexion</button>
       </div>
       
@@ -168,7 +174,7 @@ export default function OrdersAdminPage() {
               </div>
               {item.type === 'order' && (
                 <div className="order-card__actions">
-                  {STATES.map(s => (
+                  {ACTION_STATES.map(s => (
                     <button key={s.id} className="btn-state" style={{ borderColor: s.color, color: s.color }}
                       disabled={updating === item.id || Number(item.current_state) === s.id}
                       onClick={() => changeStatus(item.id, s.id)}>

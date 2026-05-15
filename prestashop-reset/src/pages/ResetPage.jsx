@@ -65,9 +65,10 @@ export default function ResetPage() {
   return (
     <div className="app">
       <div className="admin-topbar">
-        <button className="topbar-link" onClick={() => nav('/admin/reset')}>Réinitialisation</button>
+        <button className="topbar-link" style={{ color: 'var(--text-primary)', background: 'rgba(255,255,255,0.04)' }}>Réinitialisation</button>
         <button className="topbar-link" onClick={() => nav('/admin/import')}>Import</button>
         <button className="topbar-link" onClick={() => nav('/admin/orders')}>Commandes</button>
+        <button className="topbar-link" onClick={() => nav('/admin/stocks')}>Stocks</button>
         <button className="topbar-link topbar-link--right" onClick={() => { logout(); nav('/login'); }}>Déconnexion</button>
       </div>
       <header className="header">

@@ -13,6 +13,7 @@ export default function CartPage() {
         <button className="btn-icon" onClick={() => nav('/front')}>
           <span className="material-icons-outlined">arrow_back</span>
         </button>
+        
         <h2 style={{ flex: 1, fontSize: 18, fontWeight: 600 }}>Panier ({count})</h2>
       </header>
 
@@ -26,7 +27,7 @@ export default function CartPage() {
         <>
           <div className="cart-list">
             {items.map(item => (
-              <div key={item.id} className="cart-item">
+              <div key={item.cartKey} className="cart-item">
                 <div className="cart-item__img">
                   {item.imageId && apiKey ? (
                     <img src={productImageUrl(apiKey, item.id, item.imageId)} alt={item.name} />
@@ -39,12 +40,12 @@ export default function CartPage() {
                   <div className="cart-item__price">{item.price.toFixed(2)} €</div>
                 </div>
                 <div className="cart-item__qty">
-                  <button className="qty-btn" onClick={() => updateQty(item.id, item.qty - 1)}>−</button>
+                  <button className="qty-btn" onClick={() => updateQty(item.cartKey, item.qty - 1)}>−</button>
                   <span className="qty-val">{item.qty}</span>
-                  <button className="qty-btn" onClick={() => updateQty(item.id, item.qty + 1)}>+</button>
+                  <button className="qty-btn" onClick={() => updateQty(item.cartKey, item.qty + 1)}>+</button>
                 </div>
                 <div className="cart-item__subtotal">{(item.price * item.qty).toFixed(2)} €</div>
-                <button className="btn-icon" onClick={() => removeItem(item.id)}>
+                <button className="btn-icon" onClick={() => removeItem(item.cartKey)}>
                   <span className="material-icons-outlined" style={{ fontSize: 18, color: 'var(--danger)' }}>delete</span>
                 </button>
               </div>
