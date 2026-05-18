@@ -10,6 +10,10 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/ps-api/, ''),
       },
+      '/api_stock.php': {
+        target: 'http://localhost/Prestashop/api_stock.php',
+        changeOrigin: true,
+      },
     },
   },
 })

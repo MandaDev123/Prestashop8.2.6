@@ -20,6 +20,7 @@ export default function OrdersAdminPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(null);
+  const [tab, setTab] = useState('orders'); // 'orders' or 'carts'
 
   const load = async () => { 
     setLoading(true); 
@@ -106,17 +107,26 @@ export default function OrdersAdminPage() {
 
   const dashboardData = useMemo(() => {
     const orders = items.filter(i => i.type === 'order');
-    const totalAmount = orders.reduce((sum, o) => sum + o.amount, 0);
-    const totalCount = orders.length;
+    // Calculate totals excluding Canceled orders (id: 6)
+    const validOrders = orders.filter(o => Number(o.current_state) !== 6);
+    
+    const totalAmount = validOrders.reduce((sum, o) => sum + o.amount, 0);
+    const totalCount = orders.length; // Count all orders even if canceled
 
     // Per day stats
     const today = new Date().toISOString().split('T')[0];
     const todayOrders = orders.filter(o => o.date_add.startsWith(today));
-    const todayAmount = todayOrders.reduce((sum, o) => sum + o.amount, 0);
+    const validTodayOrders = todayOrders.filter(o => Number(o.current_state) !== 6);
+    
+    const todayAmount = validTodayOrders.reduce((sum, o) => sum + o.amount, 0);
     const todayCount = todayOrders.length;
 
     return { totalAmount, totalCount, todayAmount, todayCount };
   }, [items]);
+
+  const displayedItems = useMemo(() => {
+    return items.filter(i => (tab === 'orders' ? i.type === 'order' : i.type === 'cart'));
+  }, [items, tab]);
 
   return (
     <div className="app">
@@ -148,14 +158,27 @@ export default function OrdersAdminPage() {
       </div>
 
       {/* Orders Section */}
-      <h2 style={{ fontSize: 18, marginBottom: 16, fontWeight: 600 }}>Liste des commandes & paniers</h2>
+      <h2 style={{ fontSize: 18, marginBottom: 16, fontWeight: 600 }}>Liste</h2>
+      {/* Section Tabs */}
+      <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
+        <button className={`btn ${tab === 'orders' ? 'btn--primary' : 'btn--ghost'}`} onClick={() => setTab('orders')}>
+          <span className="material-icons-outlined" style={{ fontSize: 18 }}>receipt_long</span>
+          Commandes finalisées
+        </button>
+        <button className={`btn ${tab === 'carts' ? 'btn--primary' : 'btn--ghost'}`} onClick={() => setTab('carts')}>
+          <span className="material-icons-outlined" style={{ fontSize: 18 }}>shopping_cart</span>
+          Paniers en cours
+        </button>
+      </div>
+
+      {/* List Section */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>Chargement...</div>
-      ) : items.length === 0 ? (
-        <div className="results-card"><h3 className="results-card__title">Aucune commande ou panier</h3></div>
+      ) : displayedItems.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>Aucun élément trouvé.</div>
       ) : (
-        <div className="orders-list">
-          {items.map(item => (
+        <div className="orders-grid">
+          {displayedItems.map(item => (
             <div key={`${item.type}-${item.id}`} className="order-card" style={{ borderColor: item.type === 'cart' ? '#fef08a' : 'var(--border)' }}>
               <div className="order-card__header">
                 <span className="order-card__id">{item.type === 'cart' ? 'Panier' : 'Cmd'} #{item.id}</span>

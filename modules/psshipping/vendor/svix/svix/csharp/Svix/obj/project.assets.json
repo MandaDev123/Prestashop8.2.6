@@ -694,11 +694,11 @@
   "project": {
     "version": "1.24.0",
     "restore": {
-      "projectUniqueName": "C:\\xampp\\htdocs\\Prestashop\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix\\Svix.csproj",
+      "projectUniqueName": "C:\\Users\\HP\\OneDrive\\Documents\\GitHub\\Prestashop8.2.6\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix\\Svix.csproj",
       "projectName": "Svix",
-      "projectPath": "C:\\xampp\\htdocs\\Prestashop\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix\\Svix.csproj",
+      "projectPath": "C:\\Users\\HP\\OneDrive\\Documents\\GitHub\\Prestashop8.2.6\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix\\Svix.csproj",
       "packagesPath": "C:\\Users\\HP\\.nuget\\packages\\",
-      "outputPath": "C:\\xampp\\htdocs\\Prestashop\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix\\obj\\",
+      "outputPath": "C:\\Users\\HP\\OneDrive\\Documents\\GitHub\\Prestashop8.2.6\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix\\obj\\",
       "projectStyle": "PackageReference",
       "crossTargeting": true,
       "configFilePaths": [
@@ -821,5 +821,13 @@
         "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.419\\RuntimeIdentifierGraph.json"
       }
     }
-  }
+  },
+  "logs": [
+    {
+      "code": "NU1900",
+      "level": "Warning",
+      "warningLevel": 1,
+      "message": "Error occurred while getting package vulnerability data: Unable to load the service index for source https://api.nuget.org/v3/index.json."
+    }
+  ]
 }

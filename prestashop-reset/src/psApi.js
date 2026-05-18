@@ -50,35 +50,43 @@ export async function deleteIds(apiKey, resource, ids) {
   return { deleted, errors };
 }
 
+// ── Helper: build auth query string for write ops (no output_format=JSON) ──
+const qsWrite = (key) => {
+  return '?ws_key=' + encodeURIComponent(key);
+};
+
 // ── POST: create a single entity via XML ──
 export async function createEntity(apiKey, resource, xml) {
-  const res = await fetch(`${BASE}/${resource}${qs(apiKey)}`, {
+  const res = await fetch(`${BASE}/${resource}${qsWrite(apiKey)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'text/xml' },
     body: xml,
   });
   const text = await res.text();
+  
+  // Always try to extract the ID first (PrestaShop may create the entity but return 500)
+  const idMatch = text.match(/<id><!\[CDATA\[(\d+)\]\]><\/id>|<id>(\d+)<\/id>/);
+  const extractedId = idMatch ? (idMatch[1] || idMatch[2]) : null;
+  
   if (!res.ok) {
-    // Try JSON error first
+    // If we got an ID despite the error, the entity WAS created
+    if (extractedId) {
+      return { success: true, id: extractedId };
+    }
+    // Log full details for debugging
+    console.error(`[createEntity] ${resource} HTTP ${res.status}`, { xml: xml.substring(0, 300), response: text.substring(0, 500) });
+    // Otherwise, return the error
     try {
       const json = JSON.parse(text);
       const msg = json.errors?.map(e => e.message).join(', ') || JSON.stringify(json);
       return { success: false, error: `HTTP ${res.status}: ${msg}` };
-    } catch {}
-    // Fallback to XML error
+    } catch { /* not JSON, try XML */ }
     const msgMatch = text.match(/<message><!\[CDATA\[(.+?)\]\]><\/message>/s);
     const msg = msgMatch ? msgMatch[1] : text.substring(0, 150);    
     return { success: false, error: `HTTP ${res.status}: ${msg}` };
   }
-  // Try JSON response first (output_format=JSON)
-  try {
-    const json = JSON.parse(text);
-    const key = Object.keys(json)[0]; // e.g. "address", "customer", "cart", etc.
-    if (key && json[key]?.id) return { success: true, id: String(json[key].id) };
-  } catch {}
-  // Fallback to XML regex
-  const idMatch = text.match(/<id><!\[CDATA\[(\d+)\]\]><\/id>|<id>(\d+)<\/id>/);
-  return { success: true, id: idMatch ? (idMatch[1] || idMatch[2]) : null };
+  
+  return { success: true, id: extractedId };
 }
 
 // ── Validate API key by hitting the root endpoint ──
@@ -90,40 +98,55 @@ export async function validateKey(apiKey) {
 }
 
 // ══════════════════════════════════════════════
-// RESET: Categories of data to purge (Option A)
+// RESET: All resources to purge in FK-safe order
 // ══════════════════════════════════════════════
 
-export const RESET_CATEGORIES = {
-  orders: {
-    label: 'Commandes & Paiements',
-    description: 'Commandes, factures, paiements, retours, avoirs',
-    icon: 'receipt_long',
-    // Delete children first, then parent — respects FK order
-    resources: [
-      'order_details', 'order_histories', 'order_invoices',
-      'order_payments', 'order_carriers', 'order_cart_rules',
-      'order_slip', 'orders',
-    ],
-  },
-  carts: {
-    label: 'Paniers',
-    description: 'Tous les paniers clients (abandonnés ou non)',
-    icon: 'shopping_cart',
-    resources: ['carts'],
-  },
-  customers: {
-    label: 'Clients & Adresses',
-    description: 'Comptes clients, adresses, fils SAV, messages',
-    icon: 'people',
-    resources: ['customer_messages', 'customer_threads', 'addresses', 'customers'],
-  },
-  guests: {
-    label: 'Visiteurs anonymes',
-    description: 'Sessions visiteurs non-inscrits',
-    icon: 'visibility_off',
-    resources: ['guests'],
-  },
-};
+// Ordered from children → parents to respect foreign key constraints.
+// 'customers' is handled specially (we keep "Anonymous").
+// 'categories' is handled specially (we keep Root #1 and Home #2).
+export const ALL_RESET_RESOURCES = [
+  // Order-related
+  'order_details', 'order_histories', 'order_invoices',
+  'order_payments', 'order_carriers', 'order_cart_rules',
+  'order_slip', 'orders',
+  // Carts
+  'carts',
+  // Product-related (children first)
+  'product_option_values', 'product_options',
+  'combinations', 'specific_prices', 'products',
+  // Categories (keep Root #1 and Home #2)
+  'categories',
+  // Customer-related (keep Anonymous)
+  'customer_messages', 'customer_threads', 'addresses', 'customers',
+  // Visitors
+  'guests',
+];
+
+// Fetch customer IDs but exclude "Anonymous"
+export async function fetchCustomerIdsExceptAnonymous(apiKey) {
+  const res = await fetch(`${BASE}/customers${qs(apiKey, { display: '[id,firstname,lastname]' })}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  const custs = data.customers || [];
+  return custs
+    .filter(c => {
+      const fn = (c.firstname || '').toLowerCase();
+      const ln = (c.lastname || '').toLowerCase();
+      return fn !== 'anonymous' && ln !== 'anonymous';
+    })
+    .map(c => c.id);
+}
+
+// Fetch category IDs but exclude Root (#1) and Home (#2)
+export async function fetchCategoryIdsExceptSystem(apiKey) {
+  const res = await fetch(`${BASE}/categories${qs(apiKey, { display: '[id]' })}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  const cats = data.categories || [];
+  return cats
+    .filter(c => Number(c.id) > 2)
+    .map(c => c.id);
+}
 
 // ══════════════════════════════════════════════
 // IMPORT: Entity definitions + smart CSV mapping
@@ -324,11 +347,15 @@ export function buildXML(entityKey, row, mapping, langId = 1) {
   return xml;
 }
 
-// ── Parse CSV (handles ; and , delimiters, quoted fields) ──
+// ── Parse CSV (handles tab, ; and , delimiters, quoted fields) ──
 export function parseCSV(text) {
   const clean = text.replace(/^\uFEFF/, '');
   const firstLine = clean.split('\n')[0];
-  const delim = (firstLine.split(';').length > firstLine.split(',').length) ? ';' : ',';
+  // Detect delimiter: tabs first, then ; vs ,
+  const tabCount = firstLine.split('\t').length;
+  const semiCount = firstLine.split(';').length;
+  const commaCount = firstLine.split(',').length;
+  const delim = (tabCount > semiCount && tabCount > commaCount) ? '\t' : (semiCount > commaCount) ? ';' : ',';
   const lines = [];
   let current = '', inQ = false;
   for (let i = 0; i < clean.length; i++) {
@@ -367,10 +394,12 @@ export function sortByDeps(files) {
 
 // ── Fetch all products with details ──
 export async function fetchProducts(apiKey) {
-  const res = await fetch(`${BASE}/products${qs(apiKey, { display: 'full', 'filter[active]': '1' })}`);
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.products || [];
+  try {
+    const res = await fetch(`${BASE}/products${qs(apiKey, { display: 'full', 'filter[active]': '1' })}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.products || [];
+  } catch { return []; }
 }
 
 // ── Fetch single product ──
@@ -383,10 +412,12 @@ export async function fetchProduct(apiKey, id) {
 
 // ── Fetch categories ──
 export async function fetchCategoriesList(apiKey) {
-  const res = await fetch(`${BASE}/categories${qs(apiKey, { display: 'full', 'filter[active]': '1' })}`);
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.categories || [];
+  try {
+    const res = await fetch(`${BASE}/categories${qs(apiKey, { display: 'full', 'filter[active]': '1' })}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.categories || [];
+  } catch { return []; }
 }
 
 // ── Get product image URL ──
@@ -396,18 +427,22 @@ export function productImageUrl(apiKey, productId, imageId) {
 
 // ── Fetch all orders with details ──
 export async function fetchOrders(apiKey) {
-  const res = await fetch(`${BASE}/orders${qs(apiKey, { display: 'full', sort: '[id_DESC]' })}`);
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.orders || [];
+  try {
+    const res = await fetch(`${BASE}/orders${qs(apiKey, { display: 'full', sort: '[id_DESC]' })}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.orders || [];
+  } catch { return []; }
 }
 
 // ── Fetch all carts ──
 export async function fetchCarts(apiKey) {
-  const res = await fetch(`${BASE}/carts${qs(apiKey, { display: 'full', sort: '[id_DESC]' })}`);
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.carts || [];
+  try {
+    const res = await fetch(`${BASE}/carts${qs(apiKey, { display: 'full', sort: '[id_DESC]' })}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.carts || [];
+  } catch { return []; }
 }
 
 // ── Fetch orders by customer ID ──
@@ -432,18 +467,22 @@ export async function findCustomerByEmail(apiKey, email) {
 
 // ── Fetch all customers ──
 export async function fetchCustomers(apiKey) {
-  const res = await fetch(`${BASE}/customers${qs(apiKey, { display: 'full', 'filter[active]': '1' })}`);
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.customers || [];
+  try {
+    const res = await fetch(`${BASE}/customers${qs(apiKey, { display: 'full', 'filter[active]': '1' })}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.customers || [];
+  } catch { return []; }
 }
 
 // ── Fetch specific prices (discounts) ──
 export async function fetchSpecificPrices(apiKey) {
-  const res = await fetch(`${BASE}/specific_prices${qs(apiKey, { display: 'full' })}`);
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.specific_prices || [];
+  try {
+    const res = await fetch(`${BASE}/specific_prices${qs(apiKey, { display: 'full' })}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.specific_prices || [];
+  } catch { return []; }
 }
 
 // ── Fetch active countries ──
@@ -545,15 +584,17 @@ export async function fetchStock(apiKey, productId) {
   return Array.isArray(sa) ? sa[0] : sa;
 }
 
-// ── Create full order workflow: customer → address → cart → order ──
-export async function createFullOrder(apiKey, customerInfo, cartItems, langId = 1) {
-  // 1. Find or create customer
-  let customer = await findCustomerByEmail(apiKey, customerInfo.email);
-  let customerId;
-  if (customer) {
-    customerId = customer.id;
-  } else {
-    const custXml = `<?xml version="1.0" encoding="UTF-8"?>
+// ── High-level function to create a full Order (Customer + Address + Cart + Order) ──
+export async function createFullOrder(apiKey, customerInfo, cartItems) {
+  try {
+    // 0. Base checks
+    const langId = 1;
+    let customer = await findCustomerByEmail(apiKey, customerInfo.email);
+    let customerId;
+    if (customer) {
+      customerId = customer.id;
+    } else {
+      const custXml = `<?xml version="1.0" encoding="UTF-8"?>
 <prestashop><customer>
 <firstname>${esc(customerInfo.firstname)}</firstname>
 <lastname>${esc(customerInfo.lastname)}</lastname>
@@ -561,13 +602,13 @@ export async function createFullOrder(apiKey, customerInfo, cartItems, langId = 
 <passwd>${esc(customerInfo.passwd || 'NewApp2026!')}</passwd>
 <active>1</active>
 </customer></prestashop>`;
-    const r = await createEntity(apiKey, 'customers', custXml);
-    if (!r.success) return { success: false, error: 'Création client: ' + r.error };
-    customerId = r.id;
-  }
+      const r = await createEntity(apiKey, 'customers', custXml);
+      if (!r.success) return { success: false, error: 'Création client: ' + r.error };
+      customerId = r.id;
+    }
 
-  // 2. Create address
-  const addrXml = `<?xml version="1.0" encoding="UTF-8"?>
+    // 2. Create address
+    const addrXml = `<?xml version="1.0" encoding="UTF-8"?>
 <prestashop><address>
 <id_customer>${customerId}</id_customer>
 <alias>Livraison</alias>
@@ -579,16 +620,16 @@ export async function createFullOrder(apiKey, customerInfo, cartItems, langId = 
 <id_country>${customerInfo.id_country || 8}</id_country>
 <phone>${esc(customerInfo.phone || '')}</phone>
 </address></prestashop>`;
-  const addrR = await createEntity(apiKey, 'addresses', addrXml);
-  if (!addrR.success) return { success: false, error: 'Création adresse: ' + addrR.error };
-  const addressId = addrR.id;
+      const addrR = await createEntity(apiKey, 'addresses', addrXml);
+      if (!addrR.success) return { success: false, error: 'Création adresse: ' + addrR.error };
+      const addressId = addrR.id;
 
-  // 3. Create cart with products
-  let cartRows = '';
-  for (const item of cartItems) {
-    cartRows += `<cart_row><id_product>${item.id}</id_product><id_product_attribute>${item.combinationId || 0}</id_product_attribute><id_address_delivery>${addressId}</id_address_delivery><quantity>${item.qty}</quantity></cart_row>`;
-  }
-  const cartXml = `<?xml version="1.0" encoding="UTF-8"?>
+      // 3. Create cart with products
+      let cartRows = '';
+      for (const item of cartItems) {
+        cartRows += `<cart_row><id_product>${item.id}</id_product><id_product_attribute>${item.combinationId || 0}</id_product_attribute><id_address_delivery>${addressId}</id_address_delivery><quantity>${item.qty}</quantity></cart_row>`;
+      }
+      const cartXml = `<?xml version="1.0" encoding="UTF-8"?>
 <prestashop><cart>
 <id_customer>${customerId}</id_customer>
 <id_address_delivery>${addressId}</id_address_delivery>
@@ -597,8 +638,9 @@ export async function createFullOrder(apiKey, customerInfo, cartItems, langId = 
 <id_lang>${langId}</id_lang>
 <associations><cart_rows>${cartRows}</cart_rows></associations>
 </cart></prestashop>`;
-  const cartR = await createEntity(apiKey, 'carts', cartXml);
-  if (!cartR.success) return { success: false, error: 'Création panier: ' + cartR.error };
+      const cartR = await createEntity(apiKey, 'carts', cartXml);
+      if (!cartR.success) return { success: false, error: 'Création panier: ' + cartR.error };
+      const cartId = cartR.id;
 
   // 4. Create order
   let totalPaid = 0;
@@ -607,7 +649,7 @@ export async function createFullOrder(apiKey, customerInfo, cartItems, langId = 
 <prestashop><order>
 <id_address_delivery>${addressId}</id_address_delivery>
 <id_address_invoice>${addressId}</id_address_invoice>
-<id_cart>${cartR.id}</id_cart>
+<id_cart>${cartId}</id_cart>
 <id_currency>2</id_currency>
 <id_lang>${langId}</id_lang>
 <id_customer>${customerId}</id_customer>
@@ -625,6 +667,9 @@ export async function createFullOrder(apiKey, customerInfo, cartItems, langId = 
   if (!orderR.success) return { success: false, error: 'Création commande: ' + orderR.error };
 
   return { success: true, orderId: orderR.id, customerId };
+  } catch(e) {
+    return { success: false, error: e.message };
+  }
 }
 
 function esc(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }

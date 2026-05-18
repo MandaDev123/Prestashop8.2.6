@@ -19,7 +19,20 @@ export default function ImportPage() {
 
   const handleCSV = async (idx, file) => {
     if (!file) return;
-    const text = await file.text();
+    // Try UTF-8 first, fallback to Windows-1252 (common for French Excel exports)
+    let text = await file.text();
+    if (text.includes('\uFFFD') || /[^\x20-\x7F]/.test(text) === false) {
+      // If we see replacement chars or no accented chars, try Latin-1/Windows-1252
+      try {
+        const buffer = await file.arrayBuffer();
+        const decoder = new TextDecoder('windows-1252');
+        const altText = decoder.decode(buffer);
+        // Use the version that has more valid characters
+        if (altText.includes('é') || altText.includes('è') || altText.includes('à') || altText.includes('ê')) {
+          text = altText;
+        }
+      } catch { /* stick with UTF-8 */ }
+    }
     const parsed = parseCSV(text);
     if (parsed.length < 2) return;
     const n = [...csvFiles];

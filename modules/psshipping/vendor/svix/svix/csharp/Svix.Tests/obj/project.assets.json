@@ -6579,11 +6579,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\xampp\\htdocs\\Prestashop\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix.Tests\\Svix.Tests.csproj",
+      "projectUniqueName": "C:\\Users\\HP\\OneDrive\\Documents\\GitHub\\Prestashop8.2.6\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix.Tests\\Svix.Tests.csproj",
       "projectName": "Svix.Tests",
-      "projectPath": "C:\\xampp\\htdocs\\Prestashop\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix.Tests\\Svix.Tests.csproj",
+      "projectPath": "C:\\Users\\HP\\OneDrive\\Documents\\GitHub\\Prestashop8.2.6\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix.Tests\\Svix.Tests.csproj",
       "packagesPath": "C:\\Users\\HP\\.nuget\\packages\\",
-      "outputPath": "C:\\xampp\\htdocs\\Prestashop\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix.Tests\\obj\\",
+      "outputPath": "C:\\Users\\HP\\OneDrive\\Documents\\GitHub\\Prestashop8.2.6\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix.Tests\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\HP\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -6598,8 +6598,8 @@
         "net5.0": {
           "targetAlias": "net5.0",
           "projectReferences": {
-            "C:\\xampp\\htdocs\\Prestashop\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix\\Svix.csproj": {
-              "projectPath": "C:\\xampp\\htdocs\\Prestashop\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix\\Svix.csproj"
+            "C:\\Users\\HP\\OneDrive\\Documents\\GitHub\\Prestashop8.2.6\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix\\Svix.csproj": {
+              "projectPath": "C:\\Users\\HP\\OneDrive\\Documents\\GitHub\\Prestashop8.2.6\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix\\Svix.csproj"
             }
           }
         }
@@ -6677,5 +6677,13 @@
         "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.419\\RuntimeIdentifierGraph.json"
       }
     }
-  }
+  },
+  "logs": [
+    {
+      "code": "NU1900",
+      "level": "Warning",
+      "warningLevel": 1,
+      "message": "Error occurred while getting package vulnerability data: Unable to load the service index for source https://api.nuget.org/v3/index.json."
+    }
+  ]
 }
