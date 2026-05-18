@@ -3,8 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts';
 import { fetchOrders, fetchCarts, updateOrderStatus, fetchCustomers } from '../psApi';
 
-const STATES = [
+const ALL_STATES = [
   { id: 13, label: 'En attente de paiement à la livraison', color: '#f59e0b' },
+  { id: 2, label: 'Paiement effectué', color: '#22c55e' },
+  { id: 6, label: 'Annulé', color: '#64748b' },
+];
+
+const ACTION_STATES = [
   { id: 2, label: 'Paiement effectué', color: '#22c55e' },
   { id: 6, label: 'Annulé', color: '#64748b' },
 ];
@@ -15,6 +20,7 @@ export default function OrdersAdminPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(null);
+  const [tab, setTab] = useState('orders'); // 'orders' or 'carts'
 
   const load = async () => { 
     setLoading(true); 
@@ -89,36 +95,46 @@ export default function OrdersAdminPage() {
 
   const getStateName = (id) => {
     if (id === 'cart') return 'Dans le panier';
-    const s = STATES.find(s => s.id === Number(id));
+    const s = ALL_STATES.find(s => s.id === Number(id));
     return s ? s.label : `État #${id}`;
   };
 
   const getStateColor = (id) => {
     if (id === 'cart') return '#eab308'; // yellow/orange
-    const s = STATES.find(s => s.id === Number(id));
+    const s = ALL_STATES.find(s => s.id === Number(id));
     return s ? s.color : 'var(--text-muted)';
   };
 
   const dashboardData = useMemo(() => {
     const orders = items.filter(i => i.type === 'order');
-    const totalAmount = orders.reduce((sum, o) => sum + o.amount, 0);
-    const totalCount = orders.length;
+    // Calculate totals excluding Canceled orders (id: 6)
+    const validOrders = orders.filter(o => Number(o.current_state) !== 6);
+    
+    const totalAmount = validOrders.reduce((sum, o) => sum + o.amount, 0);
+    const totalCount = orders.length; // Count all orders even if canceled
 
     // Per day stats
     const today = new Date().toISOString().split('T')[0];
     const todayOrders = orders.filter(o => o.date_add.startsWith(today));
-    const todayAmount = todayOrders.reduce((sum, o) => sum + o.amount, 0);
+    const validTodayOrders = todayOrders.filter(o => Number(o.current_state) !== 6);
+    
+    const todayAmount = validTodayOrders.reduce((sum, o) => sum + o.amount, 0);
     const todayCount = todayOrders.length;
 
     return { totalAmount, totalCount, todayAmount, todayCount };
   }, [items]);
+
+  const displayedItems = useMemo(() => {
+    return items.filter(i => (tab === 'orders' ? i.type === 'order' : i.type === 'cart'));
+  }, [items, tab]);
 
   return (
     <div className="app">
       <div className="admin-topbar">
         <button className="topbar-link" onClick={() => nav('/admin/reset')}>Réinitialisation</button>
         <button className="topbar-link" onClick={() => nav('/admin/import')}>Import</button>
-        <button className="topbar-link" onClick={() => nav('/admin/orders')}>Commandes</button>
+        <button className="topbar-link" style={{ color: 'var(--text-primary)', background: 'rgba(255,255,255,0.04)' }}>Commandes</button>
+        <button className="topbar-link" onClick={() => nav('/admin/stocks')}>Stocks</button>
         <button className="topbar-link topbar-link--right" onClick={() => { logout(); nav('/login'); }}>Déconnexion</button>
       </div>
       
@@ -142,14 +158,27 @@ export default function OrdersAdminPage() {
       </div>
 
       {/* Orders Section */}
-      <h2 style={{ fontSize: 18, marginBottom: 16, fontWeight: 600 }}>Liste des commandes & paniers</h2>
+      <h2 style={{ fontSize: 18, marginBottom: 16, fontWeight: 600 }}>Liste</h2>
+      {/* Section Tabs */}
+      <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
+        <button className={`btn ${tab === 'orders' ? 'btn--primary' : 'btn--ghost'}`} onClick={() => setTab('orders')}>
+          <span className="material-icons-outlined" style={{ fontSize: 18 }}>receipt_long</span>
+          Commandes finalisées
+        </button>
+        <button className={`btn ${tab === 'carts' ? 'btn--primary' : 'btn--ghost'}`} onClick={() => setTab('carts')}>
+          <span className="material-icons-outlined" style={{ fontSize: 18 }}>shopping_cart</span>
+          Paniers en cours
+        </button>
+      </div>
+
+      {/* List Section */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>Chargement...</div>
-      ) : items.length === 0 ? (
-        <div className="results-card"><h3 className="results-card__title">Aucune commande ou panier</h3></div>
+      ) : displayedItems.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>Aucun élément trouvé.</div>
       ) : (
-        <div className="orders-list">
-          {items.map(item => (
+        <div className="orders-grid">
+          {displayedItems.map(item => (
             <div key={`${item.type}-${item.id}`} className="order-card" style={{ borderColor: item.type === 'cart' ? '#fef08a' : 'var(--border)' }}>
               <div className="order-card__header">
                 <span className="order-card__id">{item.type === 'cart' ? 'Panier' : 'Cmd'} #{item.id}</span>
@@ -168,7 +197,7 @@ export default function OrdersAdminPage() {
               </div>
               {item.type === 'order' && (
                 <div className="order-card__actions">
-                  {STATES.map(s => (
+                  {ACTION_STATES.map(s => (
                     <button key={s.id} className="btn-state" style={{ borderColor: s.color, color: s.color }}
                       disabled={updating === item.id || Number(item.current_state) === s.id}
                       onClick={() => changeStatus(item.id, s.id)}>

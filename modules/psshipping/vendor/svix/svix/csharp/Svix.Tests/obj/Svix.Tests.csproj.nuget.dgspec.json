@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\xampp\\htdocs\\Prestashop\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix.Tests\\Svix.Tests.csproj": {}
+    "C:\\Users\\HP\\OneDrive\\Documents\\GitHub\\Prestashop8.2.6\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix.Tests\\Svix.Tests.csproj": {}
   },
   "projects": {
-    "C:\\xampp\\htdocs\\Prestashop\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix.Tests\\Svix.Tests.csproj": {
+    "C:\\Users\\HP\\OneDrive\\Documents\\GitHub\\Prestashop8.2.6\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix.Tests\\Svix.Tests.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\xampp\\htdocs\\Prestashop\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix.Tests\\Svix.Tests.csproj",
+        "projectUniqueName": "C:\\Users\\HP\\OneDrive\\Documents\\GitHub\\Prestashop8.2.6\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix.Tests\\Svix.Tests.csproj",
         "projectName": "Svix.Tests",
-        "projectPath": "C:\\xampp\\htdocs\\Prestashop\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix.Tests\\Svix.Tests.csproj",
+        "projectPath": "C:\\Users\\HP\\OneDrive\\Documents\\GitHub\\Prestashop8.2.6\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix.Tests\\Svix.Tests.csproj",
         "packagesPath": "C:\\Users\\HP\\.nuget\\packages\\",
-        "outputPath": "C:\\xampp\\htdocs\\Prestashop\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix.Tests\\obj\\",
+        "outputPath": "C:\\Users\\HP\\OneDrive\\Documents\\GitHub\\Prestashop8.2.6\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix.Tests\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\HP\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -26,8 +26,8 @@
           "net5.0": {
             "targetAlias": "net5.0",
             "projectReferences": {
-              "C:\\xampp\\htdocs\\Prestashop\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix\\Svix.csproj": {
-                "projectPath": "C:\\xampp\\htdocs\\Prestashop\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix\\Svix.csproj"
+              "C:\\Users\\HP\\OneDrive\\Documents\\GitHub\\Prestashop8.2.6\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix\\Svix.csproj": {
+                "projectPath": "C:\\Users\\HP\\OneDrive\\Documents\\GitHub\\Prestashop8.2.6\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix\\Svix.csproj"
               }
             }
           }
@@ -106,14 +106,14 @@
         }
       }
     },
-    "C:\\xampp\\htdocs\\Prestashop\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix\\Svix.csproj": {
+    "C:\\Users\\HP\\OneDrive\\Documents\\GitHub\\Prestashop8.2.6\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix\\Svix.csproj": {
       "version": "1.24.0",
       "restore": {
-        "projectUniqueName": "C:\\xampp\\htdocs\\Prestashop\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix\\Svix.csproj",
+        "projectUniqueName": "C:\\Users\\HP\\OneDrive\\Documents\\GitHub\\Prestashop8.2.6\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix\\Svix.csproj",
         "projectName": "Svix",
-        "projectPath": "C:\\xampp\\htdocs\\Prestashop\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix\\Svix.csproj",
+        "projectPath": "C:\\Users\\HP\\OneDrive\\Documents\\GitHub\\Prestashop8.2.6\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix\\Svix.csproj",
         "packagesPath": "C:\\Users\\HP\\.nuget\\packages\\",
-        "outputPath": "C:\\xampp\\htdocs\\Prestashop\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix\\obj\\",
+        "outputPath": "C:\\Users\\HP\\OneDrive\\Documents\\GitHub\\Prestashop8.2.6\\modules\\psshipping\\vendor\\svix\\svix\\csharp\\Svix\\obj\\",
         "projectStyle": "PackageReference",
         "crossTargeting": true,
         "configFilePaths": [

@@ -39,7 +39,24 @@ export default function CheckoutPage() {
     const savedTotal = total; // Save total before clearing
     const r = await createFullOrder(apiKey, form, items);
     setLoading(false);
-    if (r.success) { setResult({ ...r, totalPaid: savedTotal }); clearCart(); }
+    if (r.success) { 
+      setResult({ ...r, totalPaid: savedTotal }); 
+      
+      // Log sales for stock evolution history
+      Promise.all(items.map(it => 
+        fetch(`http://localhost/Prestashop/api_stock.php?action=log_sale&ws_key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id_product: it.id,
+            id_product_attribute: it.combinationId || 0,
+            qty: it.qty
+          })
+        }).catch(e => console.error(e))
+      ));
+
+      clearCart(); 
+    }
     else setError(r.error);
   };
 

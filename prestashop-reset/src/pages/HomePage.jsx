@@ -163,7 +163,7 @@ export default function HomePage() {
                   </div>
                 )}
                 <div className="product-card__img">
-                  {getImage(p) ? <img src={getImage(p)} alt={getName(p)} /> : <span className="material-icons-outlined" style={{ fontSize: 48, color: 'var(--text-muted)' }}>image</span>}
+                  {getImage(p) ? <img src={getImage(p)} alt={getName(p)} loading="lazy" /> : <span className="material-icons-outlined" style={{ fontSize: 48, color: 'var(--text-muted)' }}>image</span>}
                 </div>
                 <div className="product-card__body">
                   <h3 className="product-card__name">{getName(p)}</h3>
