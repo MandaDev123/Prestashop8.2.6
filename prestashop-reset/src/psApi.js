@@ -455,6 +455,15 @@ export async function fetchOrdersByCustomer(apiKey, customerId) {
   return Array.isArray(orders) ? orders : [orders];
 }
 
+export async function fetchOrdersByCustomerDetails(apiKey, orderid ) {
+  const res = await fetch(`${BASE}/order_details${qs(apiKey, { display: 'full',  'filter[id_order]': orderid  })}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  const orders = data.orders;
+  if (!orders) return [];
+  return Array.isArray(orders) ? orders : [orders];
+}
+
 // ── Find customer by email ──
 export async function findCustomerByEmail(apiKey, email) {
   const res = await fetch(`${BASE}/customers${qs(apiKey, { display: 'full', 'filter[email]': email })}`);
@@ -644,7 +653,11 @@ export async function createFullOrder(apiKey, customerInfo, cartItems) {
 
   // 4. Create order
   let totalPaid = 0;
-  for (const item of cartItems) totalPaid += item.price * item.qty;
+  let totalPaidHT = 0;
+  for (const item of cartItems) {
+    totalPaid += item.price * item.qty;
+    totalPaidHT += (item.basePriceHT || item.price) * item.qty; // Assuming basePriceHT is passed
+  }
   const orderXml = `<?xml version="1.0" encoding="UTF-8"?>
 <prestashop><order>
 <id_address_delivery>${addressId}</id_address_delivery>
@@ -654,14 +667,14 @@ export async function createFullOrder(apiKey, customerInfo, cartItems) {
 <id_lang>${langId}</id_lang>
 <id_customer>${customerId}</id_customer>
 <id_carrier>0</id_carrier>
-<payment>Paiement à la livraison</payment>
-<module>ps_cashondelivery</module>
+<payment>Paiement à distance accepté</payment>
+<module>ps_wirepayment</module>
 <total_paid>${totalPaid.toFixed(6)}</total_paid>
 <total_paid_real>${totalPaid.toFixed(6)}</total_paid_real>
-<total_products>${totalPaid.toFixed(6)}</total_products>
+<total_products>${totalPaidHT.toFixed(6)}</total_products>
 <total_products_wt>${totalPaid.toFixed(6)}</total_products_wt>
 <conversion_rate>1.000000</conversion_rate>
-<current_state>12</current_state>
+<current_state>2</current_state>
 </order></prestashop>`;
   const orderR = await createEntity(apiKey, 'orders', orderXml);
   if (!orderR.success) return { success: false, error: 'Création commande: ' + orderR.error };
@@ -673,3 +686,93 @@ export async function createFullOrder(apiKey, customerInfo, cartItems) {
 }
 
 function esc(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── Fetch Tax Rates Map ──
+export async function fetchTaxRates(apiKey) {
+  try {
+    const [rulesRes, taxesRes] = await Promise.all([
+      fetch(`/ps-api/tax_rules?ws_key=${apiKey}&display=full&output_format=JSON`).then(r => r.ok ? r.json() : {}),
+      fetch(`/ps-api/taxes?ws_key=${apiKey}&display=full&output_format=JSON`).then(r => r.ok ? r.json() : {})
+    ]);
+
+    const rules = rulesRes?.tax_rules || [];
+    const taxes = taxesRes?.taxes || [];
+
+    const taxMap = {};
+    taxes.forEach(t => { taxMap[t.id] = parseFloat(t.rate); });
+
+    const groupMap = {};
+    rules.forEach(r => {
+      if (!groupMap[r.id_tax_rules_group]) {
+        groupMap[r.id_tax_rules_group] = taxMap[r.id_tax] || 0;
+      }
+    });
+
+    return groupMap;
+  } catch (e) {
+    console.error('Failed to fetch tax rates', e);
+    return {};
+  }
+}
+
+// ── Duplicate order with quantity multiplier ──
+export async function duplicateOrderWithMultiplier(apiKey, orig, multiplier) {
+  try {
+    const langId = 1;
+    const rawRows = orig.associations?.order_rows || [];
+    const orderRows = Array.isArray(rawRows) ? rawRows : [rawRows];
+
+    if (orderRows.length === 0) {
+      return { success: false, error: "Aucun produit trouvé dans la commande d'origine." };
+    }
+
+    let cartRowsXml = '';
+    let newTotalPaid = 0;
+    let newTotalProductsHT = 0;
+
+    for (const row of orderRows) {
+      const qty = parseInt(row.product_quantity, 10) * multiplier;
+      const priceTTC = parseFloat(row.product_price);
+      // Rough HT calculation
+      const priceHT = priceTTC / 1.2;
+
+      newTotalPaid += priceTTC * qty;
+      newTotalProductsHT += priceHT * qty;
+
+      cartRowsXml += `<cart_row><id_product>${row.product_id}</id_product><id_product_attribute>${row.product_attribute_id || 0}</id_product_attribute><id_address_delivery>${orig.id_address_delivery}</id_address_delivery><quantity>${qty}</quantity></cart_row>`;
+    }
+
+    // Create Cart
+    const cartXml = `<?xml version="1.0" encoding="UTF-8"?><prestashop><cart><id_customer>${orig.id_customer}</id_customer><id_address_delivery>${orig.id_address_delivery}</id_address_delivery><id_address_invoice>${orig.id_address_invoice}</id_address_invoice><id_currency>${orig.id_currency || 2}</id_currency><id_lang>${langId}</id_lang><associations><cart_rows>${cartRowsXml}</cart_rows></associations></cart></prestashop>`;
+    const cartRes = await createEntity(apiKey, 'carts', cartXml);
+    if (!cartRes.success) {
+      return { success: false, error: "Erreur création panier : " + cartRes.error };
+    }
+    const newCartId = cartRes.id;
+
+    // Create Order
+    const orderXml = `<?xml version="1.0" encoding="UTF-8"?><prestashop><order><id_address_delivery>${orig.id_address_delivery}</id_address_delivery><id_address_invoice>${orig.id_address_invoice}</id_address_invoice><id_cart>${newCartId}</id_cart><id_currency>${orig.id_currency || 2}</id_currency><id_lang>${langId}</id_lang><id_customer>${orig.id_customer}</id_customer><id_carrier>${orig.id_carrier || 0}</id_carrier><payment>Duplication #${orig.id} x${multiplier}</payment><module>ps_wirepayment</module><total_paid>${newTotalPaid.toFixed(6)}</total_paid><total_paid_real>${newTotalPaid.toFixed(6)}</total_paid_real><total_products>${newTotalProductsHT.toFixed(6)}</total_products><total_products_wt>${newTotalPaid.toFixed(6)}</total_products_wt><conversion_rate>1.000000</conversion_rate><current_state>2</current_state></order></prestashop>`;
+    const orderRes = await createEntity(apiKey, 'orders', orderXml);
+    if (!orderRes.success) {
+      return { success: false, error: "Erreur création commande : " + orderRes.error };
+    }
+    const newOrderId = orderRes.id;
+
+    // Force to Livré (state 5)
+    const historyXml = `<?xml version="1.0" encoding="UTF-8"?><prestashop><order_history><id_order>${newOrderId}</id_order><id_order_state>5</id_order_state></order_history></prestashop>`;
+    const historyRes = await createEntity(apiKey, 'order_histories', historyXml);
+    
+    if (!historyRes.success) {
+      return { 
+        success: true, 
+        orderId: newOrderId, 
+        warning: "Commande créée, mais le statut Livré n'a pu être appliqué : " + historyRes.error 
+      };
+    }
+
+    return { success: true, orderId: newOrderId };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+

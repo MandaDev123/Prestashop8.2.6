@@ -42,18 +42,7 @@ export default function CheckoutPage() {
     if (r.success) { 
       setResult({ ...r, totalPaid: savedTotal }); 
       
-      // Log sales for stock evolution history
-      Promise.all(items.map(it => 
-        fetch(`http://localhost/Prestashop/api_stock.php?action=log_sale&ws_key=${apiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id_product: it.id,
-            id_product_attribute: it.combinationId || 0,
-            qty: it.qty
-          })
-        }).catch(e => console.error(e))
-      ));
+      // Le mouvement de stock physique se fera uniquement lors du passage au statut "Livré" dans le Back-Office
 
       clearCart(); 
     }
@@ -67,7 +56,7 @@ export default function CheckoutPage() {
           <span className="material-icons-outlined" style={{ color: 'var(--success)', fontSize: 32 }}>task_alt</span>
         </div>
         <h3 className="results-card__title">Commande confirmée !</h3>
-        <p className="results-card__subtitle">Commande #{result.orderId} — Paiement à la livraison</p>
+        <p className="results-card__subtitle">Commande #{result.orderId} — Paiement à distance accepté</p>
         <div className="results-stats" style={{ marginTop: 16 }}>
           <div className="results-stat"><div className="results-stat__value">{result.totalPaid.toFixed(2)} €</div><div className="results-stat__label">Total</div></div>
         </div>

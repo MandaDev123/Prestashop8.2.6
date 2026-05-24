@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth, useCart } from '../contexts';
-import { fetchProduct, productImageUrl, fetchProductCombinations, fetchProductOptionValues, fetchProductOptions, fetchSpecificPrices, fetchStockAvailables } from '../psApi';
+import { fetchProduct, productImageUrl, fetchProductCombinations, fetchProductOptionValues, fetchProductOptions, fetchSpecificPrices, fetchStockAvailables, fetchTaxRates } from '../psApi';
 
 export default function ProductPage() {
   const { id } = useParams();
@@ -16,6 +16,7 @@ export default function ProductPage() {
   const [bundleProducts, setBundleProducts] = useState([]);
   const [specificPrices, setSpecificPrices] = useState([]);
   const [stockData, setStockData] = useState([]);
+  const [taxes, setTaxes] = useState({});
   const [loading, setLoading] = useState(true);
   const [added, setAdded] = useState(false);
   
@@ -25,18 +26,20 @@ export default function ProductPage() {
     if (!apiKey) return;
     (async () => { 
       setLoading(true); 
-      const [p, combs, optVals, opts, sp, stks] = await Promise.all([
+      const [p, combs, optVals, opts, sp, stks, tx] = await Promise.all([
         fetchProduct(apiKey, id),
         fetchProductCombinations(apiKey, id),
         fetchProductOptionValues(apiKey),
         fetchProductOptions(apiKey),
         fetchSpecificPrices(apiKey),
-        fetchStockAvailables(apiKey, id)
+        fetchStockAvailables(apiKey, id),
+        fetchTaxRates(apiKey)
       ]);
       setProduct(p);
       setCombinations(combs);
       setSpecificPrices(sp);
       setStockData(stks);
+      setTaxes(tx);
       
       const vMap = {};
       optVals.forEach(v => vMap[v.id] = v);
@@ -78,7 +81,9 @@ export default function ProductPage() {
   const name = product.name?.[0]?.value || product.name || '';
   const desc = product.description?.[0]?.value || product.description || '';
   const descShort = product.description_short?.[0]?.value || product.description_short || '';
-  const basePrice = parseFloat(product.price || 0);
+  const basePriceHT = parseFloat(product.price || 0);
+  const taxRate = product.id_tax_rules_group && taxes[product.id_tax_rules_group] ? parseFloat(taxes[product.id_tax_rules_group]) : 0;
+  const basePrice = basePriceHT * (1 + taxRate / 100);
   const ref = product.reference || '';
   const imgs = product.associations?.images || [];
 
@@ -115,7 +120,8 @@ export default function ProductPage() {
     }) || combinations[0];
   }
 
-  const combinationImpact = currentCombination ? parseFloat(currentCombination.price || 0) : 0;
+  const combinationImpactHT = currentCombination ? parseFloat(currentCombination.price || 0) : 0;
+  const combinationImpact = combinationImpactHT * (1 + taxRate / 100);
   const currentCombId = currentCombination ? currentCombination.id : '0';
   const currentStockObj = stockData.find(s => String(s.id_product_attribute) === String(currentCombId));
   const availableQuantity = currentStockObj ? parseInt(currentStockObj.quantity || 0, 10) : 0;
@@ -148,7 +154,7 @@ export default function ProductPage() {
   };
 
   const handleAdd = () => { 
-    addItem({ ...product, price: finalPrice, combinationId: currentCombination?.id }); 
+    addItem({ ...product, price: finalPrice, basePriceHT: finalPrice / (1 + taxRate / 100), combinationId: currentCombination?.id }); 
     setAdded(true); 
     setTimeout(() => setAdded(false), 1500); 
   };

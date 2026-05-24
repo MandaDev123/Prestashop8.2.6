@@ -7,6 +7,7 @@ import ResetPage from './pages/ResetPage';
 import ImportPage from './pages/ImportPage';
 import OrdersAdminPage from './pages/OrdersAdminPage';
 import StockAdminPage from './pages/StockAdminPage';
+import StatsAdminPage from './pages/StatsAdminPage';
 import HomePage from './pages/HomePage';
 import ProductPage from './pages/ProductPage';
 import CartPage from './pages/CartPage';
@@ -35,6 +36,7 @@ function AppRoutes() {
       <Route path="/admin/import" element={<ProtectedAdminRoute><ImportPage /></ProtectedAdminRoute>} />
       <Route path="/admin/orders" element={<ProtectedAdminRoute><OrdersAdminPage /></ProtectedAdminRoute>} />
       <Route path="/admin/stocks" element={<ProtectedAdminRoute><StockAdminPage /></ProtectedAdminRoute>} />
+      <Route path="/admin/stats" element={<ProtectedAdminRoute><StatsAdminPage /></ProtectedAdminRoute>} />
       
       {/* Front Routes */}
       <Route path="/front" element={<ProtectedFrontRoute><HomePage /></ProtectedFrontRoute>} />
