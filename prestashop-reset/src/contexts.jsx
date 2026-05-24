@@ -79,22 +79,26 @@ export function CartProvider({ children }) {
     const cartId = localStorage.getItem(cartIdKey) || 0;
     
     if (items.length > 0 || cartId > 0) {
-      fetch(`http://localhost/Prestashop/api_cart.php?action=sync&ws_key=VEQZ2RX4XGNRRIZJDL28E4J2NXEVSCMN`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id_cart: parseInt(cartId, 10),
-          id_customer: customer ? parseInt(customer.id, 10) : 0,
-          items: items
+      const timerId = setTimeout(() => {
+        fetch(`http://localhost/Prestashop/api_cart.php?action=sync&ws_key=VEQZ2RX4XGNRRIZJDL28E4J2NXEVSCMN`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id_cart: parseInt(cartId, 10),
+            id_customer: customer ? parseInt(customer.id, 10) : 0,
+            items: items
+          })
         })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.id_cart) {
-          localStorage.setItem(cartIdKey, data.id_cart);
-        }
-      })
-      .catch(err => console.error("Sync Cart Error", err));
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.id_cart) {
+            localStorage.setItem(cartIdKey, data.id_cart);
+          }
+        })
+        .catch(err => console.error("Sync Cart Error", err));
+      }, 500); // 500ms debounce
+      
+      return () => clearTimeout(timerId);
     }
   }, [items, cartKeyStr, customer]);
 

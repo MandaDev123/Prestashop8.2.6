@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, useCart } from '../contexts';
-import { fetchProducts, productImageUrl, fetchCategoriesList, fetchSpecificPrices } from '../psApi';
+import { fetchProducts, productImageUrl, fetchCategoriesList, fetchSpecificPrices, fetchTaxRates } from '../psApi';
 
 export default function HomePage() {
   const { apiKey, customer, frontLogout } = useAuth();
@@ -10,6 +10,7 @@ export default function HomePage() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [discounts, setDiscounts] = useState({});
+  const [taxes, setTaxes] = useState({});
   const [loading, setLoading] = useState(true);
 
   // Search state
@@ -23,13 +24,15 @@ export default function HomePage() {
     if (!apiKey) return;
     (async () => { 
       setLoading(true); 
-      const [p, c, sp] = await Promise.all([
+      const [p, c, sp, tx] = await Promise.all([
         fetchProducts(apiKey), 
         fetchCategoriesList(apiKey),
-        fetchSpecificPrices(apiKey)
+        fetchSpecificPrices(apiKey),
+        fetchTaxRates(apiKey)
       ]);
       setProducts(p); 
       setCategories(c);
+      setTaxes(tx);
       
       const discMap = {};
       sp.forEach(d => {
@@ -44,7 +47,10 @@ export default function HomePage() {
   const getName = (p) => p.name?.[0]?.value || p.name || `Produit #${p.id}`;
   
   const getPrices = (p) => {
-    const basePrice = parseFloat(p.price || 0);
+    const basePriceHT = parseFloat(p.price || 0);
+    const taxRate = p.id_tax_rules_group && taxes[p.id_tax_rules_group] ? parseFloat(taxes[p.id_tax_rules_group]) : 0;
+    const basePrice = basePriceHT * (1 + taxRate / 100);
+    
     const discount = discounts[p.id];
     let finalPrice = basePrice;
     
@@ -55,7 +61,7 @@ export default function HomePage() {
         finalPrice = basePrice - parseFloat(discount.reduction);
       }
     }
-    return { basePrice, finalPrice, hasDiscount: !!discount };
+    return { basePriceHT, basePrice, finalPrice, hasDiscount: !!discount };
   };
   
   const getImage = (p) => {
