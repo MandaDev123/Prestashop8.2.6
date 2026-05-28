@@ -174,7 +174,7 @@ export async function executeCustomImport(apiKey, csvFiles, zipFile, addLog, set
 
     if (prixTtc <= 0 || prixAchat <= 0) {
       errors++;
-      addLog({ icon: 'error', text: `Produit ${ref} (Ligne ${i+2}) : Montant positif obligatoire (> 0).` });
+      addLog({ icon: 'error', text: `Produit ${ref} (Ligne ${i + 2}) : Montant positif obligatoire (> 0).` });
       proc++; setProgress(Math.round((proc / totalSteps) * 100));
       continue;
     }
@@ -199,20 +199,20 @@ export async function executeCustomImport(apiKey, csvFiles, zipFile, addLog, set
       } else {
         const ratePercent = (taxRate * 100).toFixed(3);
         const taxName = `TVA ${parseFloat(ratePercent)}%`;
-        
+
         // 1. Create Tax
         const taxXml = `<?xml version="1.0" encoding="UTF-8"?><prestashop><tax><rate>${ratePercent}</rate><active>1</active><name><language id="1"><![CDATA[${taxName}]]></language></name></tax></prestashop>`;
         const taxRes = await createEntity(apiKey, 'taxes', taxXml);
-        
+
         if (taxRes.success) {
           // 2. Create Tax Rules Group
           const trgXml = `<?xml version="1.0" encoding="UTF-8"?><prestashop><tax_rules_group><name><![CDATA[${taxName}]]></name><active>1</active></tax_rules_group></prestashop>`;
           const trgRes = await createEntity(apiKey, 'tax_rule_groups', trgXml);
-          
+
           if (trgRes.success) {
             idTaxRulesGroup = trgRes.id;
             taxesCache[taxRate] = idTaxRulesGroup;
-            
+
             // 3. Create Tax Rule (id_country 0 applies to all)
             const trXml = `<?xml version="1.0" encoding="UTF-8"?><prestashop><tax_rule><id_tax_rules_group>${idTaxRulesGroup}</id_tax_rules_group><id_country>8</id_country><id_tax>${taxRes.id}</id_tax><behavior>0</behavior></tax_rule></prestashop>`;
             await createEntity(apiKey, 'tax_rules', trXml);
@@ -233,7 +233,7 @@ export async function executeCustomImport(apiKey, csvFiles, zipFile, addLog, set
     if (dateStr) {
       if (!/^(0[1-9]|[12]\d|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/.test(dateStr)) {
         errors++;
-        addLog({ icon: 'error', text: `Produit ${ref} (Ligne ${i+2}) : Format de date différent de DD/MM/YYYY (${dateStr})` });
+        addLog({ icon: 'error', text: `Produit ${ref} (Ligne ${i + 2}) : Format de date différent de DD/MM/YYYY (${dateStr})` });
         proc++; setProgress(Math.round((proc / totalSteps) * 100));
         continue;
       }
@@ -316,7 +316,7 @@ export async function executeCustomImport(apiKey, csvFiles, zipFile, addLog, set
     // Sanitize spec and kara: remove any non-printable or invisible characters
     const specClean = spec.replace(/[^\x20-\x7E\u00C0-\u024F]/g, '').trim();
     const karaClean = kara.replace(/[^\x20-\x7E\u00C0-\u024F]/g, '').trim();
-    
+
     // Debug: log what we're working with
     console.log(`[Import] Row ${i}: ref="${ref}" spec="${specClean}" (raw len:${spec.length}, clean len:${specClean.length}) kara="${karaClean}"`);
 
@@ -361,7 +361,7 @@ export async function executeCustomImport(apiKey, csvFiles, zipFile, addLog, set
       const prixVenteTtc = parseFrFloat(prixVenteTtcStr);
       if (prixVenteTtc <= 0) {
         errors++;
-        addLog({ icon: 'error', text: `Déclinaison ${ref}-${karaClean} (Ligne ${i+2}) : Montant positif obligatoire (> 0).` });
+        addLog({ icon: 'error', text: `Déclinaison ${ref}-${karaClean} (Ligne ${i + 2}) : Montant positif obligatoire (> 0).` });
         proc++; setProgress(Math.round((proc / totalSteps) * 100));
         continue;
       }
@@ -372,7 +372,7 @@ export async function executeCustomImport(apiKey, csvFiles, zipFile, addLog, set
     // Create Combination
     const cXml = `<?xml version="1.0" encoding="UTF-8"?><prestashop><combination><id_product>${prodInfo.id}</id_product><price>${impactHT.toFixed(6)}</price><minimal_quantity>1</minimal_quantity><associations><product_option_values><product_option_value><id>${valId}</id></product_option_value></product_option_values></associations></combination></prestashop>`;
     const cRes = await createEntity(apiKey, 'combinations', cXml);
-    
+
     if (cRes.success) {
       created++;
       combCache[`${ref}_${karaClean}`] = { id: cRes.id, impactTTC: prixVenteTtcStr ? parseFrFloat(prixVenteTtcStr) - prodInfo.priceTTC : 0, impactHT };
@@ -406,7 +406,7 @@ export async function executeCustomImport(apiKey, csvFiles, zipFile, addLog, set
     try {
       const JSZip = (await import('jszip')).default;
       const zip = await JSZip.loadAsync(zipFile);
-      
+
       for (const [filename, entry] of Object.entries(zip.files)) {
         if (entry.dir || !/\.(jpg|jpeg|png|gif|webp)$/i.test(filename)) continue;
         // Extract base name without path and extension
@@ -446,7 +446,7 @@ export async function executeCustomImport(apiKey, csvFiles, zipFile, addLog, set
     }
     proc++; setProgress(Math.round((proc / totalSteps) * 100));
   } else {
-    
+
   }
 
   // ────────────────────────────────────────────
@@ -497,6 +497,8 @@ export async function executeCustomImport(apiKey, csvFiles, zipFile, addLog, set
     const items = parseAchat(achatStr);
     console.log(`[Import] Commande ${email}: achatStr="${achatStr}" -> parsed ${items.length} items`);
 
+
+    //Import alea
     // Agréger les items identiques (même ref + attr) en sommant les quantités
     // Ex: [("P_23";1;""),("P_23";4;"")] → P_23 qty=5 dans un seul cart_row
     const aggregatedItems = [];
@@ -548,7 +550,7 @@ export async function executeCustomImport(apiKey, csvFiles, zipFile, addLog, set
     // Create Cart
     const cartXml = `<?xml version="1.0" encoding="UTF-8"?><prestashop><cart><id_currency>2</id_currency><id_lang>1</id_lang><id_customer>${idCustomer}</id_customer><id_address_delivery>${idAddress}</id_address_delivery><id_address_invoice>${idAddress}</id_address_invoice><associations><cart_rows>${cartRowsXml}</cart_rows></associations></cart></prestashop>`;
     const cartRes = await createEntity(apiKey, 'carts', cartXml);
-    
+
     if (!cartRes.success) { errors++; addLog({ icon: 'error', text: `Panier ${email}: ${cartRes.error}` }); proc++; continue; }
     const idCart = cartRes.id;
 
@@ -576,10 +578,10 @@ export async function executeCustomImport(apiKey, csvFiles, zipFile, addLog, set
         <conversion_rate>1</conversion_rate>
       </order></prestashop>`;
       const ordRes = await createEntity(apiKey, 'orders', orderXml);
-      if (ordRes.success) { 
+      if (ordRes.success) {
         created++;
         addLog({ icon: 'success', text: `Commande ${email} -> ID #${ordRes.id} (${totalPaid.toFixed(2)}€)` });
-        
+
         // FORCER LE STATUT VIA ORDER_HISTORY (Nécessaire car PrestaShop ignore souvent current_state à la création)
         if (stateId !== 2) {
           const histXml = `<?xml version="1.0" encoding="UTF-8"?><prestashop><order_history><id_order>${ordRes.id}</id_order><id_order_state>${stateId}</id_order_state></order_history></prestashop>`;

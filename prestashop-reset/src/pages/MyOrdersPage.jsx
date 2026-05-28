@@ -13,13 +13,18 @@ export default function MyOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [multipliers, setMultipliers] = useState({});
   const [dupLoading, setDupLoading] = useState(false);
+  const [expanded, setExpanded] = useState({});
+
+  const toggleExpand = (orderId) => {
+    setExpanded(prev => ({ ...prev, [orderId]: !prev[orderId] }));
+  };
 
   const handleDuplicate = async (originalOrder, factor) => {
     if (!window.confirm(`Confirmez-vous la duplication de la commande #${originalOrder.id} avec des quantités multipliées par ${factor} ?`)) return;
-    
+
     setDupLoading(true);
     const res = await duplicateOrderWithMultiplier(apiKey, originalOrder, factor);
-    
+
     if (res.success) {
       if (res.warning) {
         alert(`Commande #${res.orderId} créée, mais : ${res.warning}`);
@@ -35,15 +40,15 @@ export default function MyOrdersPage() {
     setDupLoading(false);
   };
 
-    useEffect(() => {
-      if (!apiKey || !customer) return;
-      (async () => {
-        setLoading(true);
-        const o = await fetchOrdersByCustomer(apiKey, customer.id);
-        setOrders(o);
-        setLoading(false);
-      })();
-    }, [apiKey, customer]);
+  useEffect(() => {
+    if (!apiKey || !customer) return;
+    (async () => {
+      setLoading(true);
+      const o = await fetchOrdersByCustomer(apiKey, customer.id);
+      setOrders(o);
+      setLoading(false);
+    })();
+  }, [apiKey, customer]);
 
   const handleLogout = () => {
     frontLogout();
@@ -74,18 +79,59 @@ export default function MyOrdersPage() {
           <div className="orders-list">
             {orders.map(o => (
               <div key={o.id} className="order-card">
-                <div className="order-card__header">
+                <div className="order-card__header" style={{ cursor: 'pointer' }} onClick={() => toggleExpand(o.id)}>
                   <span className="order-card__id">Commande #{o.id}</span>
-                  <span className="order-card__state" style={{ color: STATE_COLORS[o.current_state] || 'var(--text-muted)' }}>
-                    {STATE_LABELS[o.current_state] || `État #${o.current_state}`}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span className="order-card__state" style={{ color: STATE_COLORS[o.current_state] || 'var(--text-muted)' }}>
+                      {STATE_LABELS[o.current_state] || `État #${o.current_state}`}
+                    </span>
+                    <span className="material-icons-outlined" style={{ fontSize: 18, color: 'var(--text-muted)', transition: 'transform 0.2s', transform: expanded[o.id] ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                      expand_more
+                    </span>
+                  </div>
                 </div>
+
                 <div className="order-card__details">
                   <div><span className="order-card__label">Date:</span> {o.date_add}</div>
                   <div><span className="order-card__label">Total:</span> {parseFloat(o.total_paid).toFixed(2)} €</div>
                   <div><span className="order-card__label">Paiement:</span> {o.payment}</div>
                 </div>
-                
+
+                {/* Détail des articles — dépliable */}
+                {expanded[o.id] && (() => {
+                  const rows = o.associations?.order_rows || [];
+                  const orderRows = Array.isArray(rows) ? rows : [rows];
+                  return orderRows.length > 0 ? (
+                    <div style={{ margin: '12px 0', padding: '12px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)' }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Articles ({orderRows.length})
+                      </div>
+                      {orderRows.map((r, idx) => (
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: idx < orderRows.length - 1 ? '1px dashed var(--border)' : 'none' }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, fontWeight: 500 }}>{r.product_name || `Produit #${r.product_id}`}</div>
+                            {r.product_reference && (
+                              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Réf: {r.product_reference}</div>
+                            )}
+                            {r.product_attribute_id && r.product_attribute_id !== '0' && (
+                              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Déclinaison #{r.product_attribute_id}</div>
+                            )}
+                          </div>
+                          <div style={{ textAlign: 'right', marginLeft: 12 }}>
+                            <div style={{ fontSize: 13 }}>x{r.product_quantity}</div>
+                            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{parseFloat(r.unit_price_tax_incl || r.unit_price_tax_excl || 0).toFixed(2)} € / u</div>
+                          </div>
+                          <div style={{ textAlign: 'right', marginLeft: 16, fontWeight: 600, fontSize: 13 }}>
+                            {(parseFloat(r.unit_price_tax_incl || r.unit_price_tax_excl || 0) * parseInt(r.product_quantity, 10)).toFixed(2)} €
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '8px 0' }}>Aucun détail disponible.</div>
+                  );
+                })()}
+
                 <div className="order-card__actions" style={{ marginTop: 12, paddingTop: 12, borderTop: '1px dashed var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Multiplier qté:</span>
                   <input
